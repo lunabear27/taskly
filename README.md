@@ -12,6 +12,7 @@ Taskly is a modern, collaborative project management application built with Reac
 - **Responsive Design**: Works seamlessly on desktop and mobile devices
 - **TypeScript**: Full type safety throughout the application
 - **Modern UI**: Beautiful interface built with Tailwind CSS
+- **GitHub Integration**: Seamlessly connected to GitHub for version control
 
 ## 🛠️ Tech Stack
 
