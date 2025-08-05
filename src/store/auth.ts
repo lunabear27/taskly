@@ -12,6 +12,7 @@ interface AuthState {
   setUser: (user: User | null) => void;
   setSession: (session: any | null) => void;
   setLoading: (loading: boolean) => void;
+  isEmailVerified: (user: User | null) => boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -40,23 +41,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signUp: async (email: string, password: string) => {
+    console.log("Auth store: Starting signup for", email);
     set({ loading: true });
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
 
-    if (data.user) {
-      set({
-        user: data.user as User,
-        session: data.session,
-        loading: false,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
       });
-    } else {
-      set({ loading: false });
-    }
 
-    return { error };
+      console.log("Auth store: Signup response", { data, error });
+
+      // Don't set user/session immediately after signup
+      // User needs to verify email first
+      set({ loading: false });
+
+      return { error };
+    } catch (error) {
+      console.log("Auth store: Signup caught error", error);
+      set({ loading: false });
+      return { error };
+    }
   },
 
   signOut: async () => {
@@ -68,4 +73,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setUser: (user: User | null) => set({ user }),
   setSession: (session: any | null) => set({ session }),
   setLoading: (loading: boolean) => set({ loading }),
+  isEmailVerified: (user: User | null) => {
+    if (!user) return false;
+    return user.email_confirmed_at !== null;
+  },
 }));

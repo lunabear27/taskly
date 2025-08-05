@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useBoards } from "../hooks/useBoards";
+import { useDarkMode } from "../hooks/useDarkMode";
 import { useNotificationStore } from "../store/notifications";
 import { useUserProfileStore } from "../store/userProfile";
 import { Button } from "./ui/button";
@@ -64,7 +65,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const location = useLocation();
   const navigate = useNavigate();
-  const [darkMode, setDarkMode] = useState(false);
+  const { darkMode, toggleDarkMode } = useDarkMode();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
@@ -91,8 +92,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [fetchNotifications]);
 
   const handleToggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    document.documentElement.classList.toggle("dark");
+    toggleDarkMode();
   };
 
   const handleSignOut = async () => {

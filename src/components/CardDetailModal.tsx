@@ -849,10 +849,12 @@ export const CardDetailModal = React.memo<CardDetailModalProps>(
                                     assignee.user?.username ||
                                     (assignee.user?.email
                                       ? getUserDisplayName(assignee.user.email)
-                                      : `User ${assignee.user_id.substring(
+                                      : assignee.user_id
+                                      ? `User ${assignee.user_id.substring(
                                           0,
                                           8
-                                        )}`)}
+                                        )}`
+                                      : "Unknown User")}
                                 </div>
                                 <div className="text-xs text-muted-foreground truncate">
                                   {assignee.user?.email || "Unknown user"}

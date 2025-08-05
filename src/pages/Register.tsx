@@ -3,7 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/auth";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Eye, EyeOff } from "lucide-react";
+import { Label } from "../components/ui/label";
+import { Eye, EyeOff, Mail } from "lucide-react";
+import { toast } from "sonner";
 
 export const Register: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -12,6 +14,7 @@ export const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
+  const [countdown, setCountdown] = useState(0);
 
   const { signUp, loading } = useAuthStore();
   const navigate = useNavigate();
@@ -35,12 +38,76 @@ export const Register: React.FC = () => {
       return;
     }
 
-    const { error: signUpError } = await signUp(email, password);
+    console.log("Submitting signup form...");
+    console.log("Email:", email);
+    console.log("Password length:", password.length);
 
-    if (signUpError) {
-      setError(signUpError.message);
-    } else {
-      navigate("/dashboard");
+    try {
+      const { error: signUpError } = await signUp(email, password);
+      console.log("Signup response:", { signUpError });
+
+      if (signUpError) {
+        console.log("Signup error:", signUpError);
+
+        // Handle rate limiting error specifically
+        if (
+          signUpError.message?.includes("18 seconds") ||
+          signUpError.code === "over_email_send_rate_limit"
+        ) {
+          setError(
+            "Please wait 18 seconds before trying again. This helps prevent spam."
+          );
+          setCountdown(18);
+
+          // Start countdown timer
+          const timer = setInterval(() => {
+            setCountdown((prev) => {
+              if (prev <= 1) {
+                clearInterval(timer);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        } else {
+          setError(signUpError.message);
+        }
+      } else {
+        console.log("Signup successful, showing verification notification");
+
+        // Show success toast notification
+        toast.success(
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-green-600" />
+              <span className="font-medium">Email Verification Sent!</span>
+            </div>
+            <p className="text-sm text-gray-600">
+              We've sent a verification link to <strong>{email}</strong>
+            </p>
+            <p className="text-xs text-gray-500">
+              Please check your email and click the verification link to
+              activate your account.
+            </p>
+          </div>,
+          {
+            duration: 8000,
+            action: {
+              label: "Go to Login",
+              onClick: () => navigate("/login"),
+            },
+          }
+        );
+
+        // Clear form
+        setEmail("");
+        setPassword("");
+        setConfirmPassword("");
+        setError("");
+      }
+    } catch (error) {
+      console.log("Signup caught error:", error);
+      setError("An unexpected error occurred during signup");
     }
   };
 
@@ -57,19 +124,39 @@ export const Register: React.FC = () => {
             </p>
           </div>
 
+          {/* Email verification notice */}
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-start gap-3">
+              <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                  Email Verification Required
+                </p>
+                <p className="text-blue-700 dark:text-blue-300">
+                  After creating your account, you'll need to verify your email
+                  address before you can log in and access your account.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              required
-            />
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                required
+              />
+            </div>
 
             <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
               <Input
-                label="Password"
+                id="password"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -86,8 +173,9 @@ export const Register: React.FC = () => {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
               <Input
-                label="Confirm Password"
+                id="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -108,15 +196,24 @@ export const Register: React.FC = () => {
                 <p className="text-sm text-red-600 dark:text-red-400">
                   {error}
                 </p>
+                {countdown > 0 && (
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-2">
+                    You can try again in {countdown} seconds
+                  </p>
+                )}
               </div>
             )}
 
             <Button
               type="submit"
               className="w-full py-3 text-base font-medium"
-              loading={loading}
+              disabled={loading || countdown > 0}
             >
-              Create Account
+              {loading
+                ? "Creating Account..."
+                : countdown > 0
+                ? `Wait ${countdown}s`
+                : "Create Account"}
             </Button>
           </form>
 

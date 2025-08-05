@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -17,7 +17,7 @@ import { Board } from "./pages/Board";
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isAuthenticated } = useAuth();
 
   if (loading) {
     return (
@@ -27,7 +27,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
@@ -36,7 +36,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 
 // Public Route component (redirects to dashboard if already authenticated)
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, isAuthenticated } = useAuth();
 
   if (loading) {
     return (
@@ -46,7 +46,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
   }
 
-  if (user) {
+  if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -55,14 +55,6 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 function App() {
   const { loading } = useAuth();
-
-  // Initialize dark mode from localStorage
-  useEffect(() => {
-    const isDarkMode = localStorage.getItem("darkMode") === "true";
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-    }
-  }, []);
 
   if (loading) {
     return (

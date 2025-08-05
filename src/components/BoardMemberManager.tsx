@@ -191,7 +191,11 @@ export const BoardMemberManager = ({
       const username = member.user.email.split("@")[0];
       return username.charAt(0).toUpperCase() + username.slice(1);
     }
-    return `User ${member.user_id.substring(0, 8)}`;
+    // Fallback to user_id if available, otherwise use a generic name
+    if (member.user_id) {
+      return `User ${member.user_id.substring(0, 8)}`;
+    }
+    return "Unknown User";
   };
 
   const getUserInitials = (member: any) => {
@@ -200,6 +204,10 @@ export const BoardMemberManager = ({
     }
     if (member.user?.email) {
       return member.user.email.substring(0, 2).toUpperCase();
+    }
+    // Fallback to user_id if available, otherwise use "U"
+    if (member.user_id) {
+      return member.user_id.substring(0, 2).toUpperCase();
     }
     return "U";
   };

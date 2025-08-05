@@ -22,6 +22,15 @@ CREATE TABLE board_members (
   UNIQUE(board_id, user_id)
 );
 
+-- Create board_stars table for user-specific starring
+CREATE TABLE board_stars (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  board_id UUID REFERENCES boards(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(board_id, user_id)
+);
+
 -- Create invitations table
 CREATE TABLE invitations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -109,6 +118,8 @@ CREATE INDEX idx_lists_board_id ON lists(board_id);
 CREATE INDEX idx_cards_list_id ON cards(list_id);
 CREATE INDEX idx_board_members_board_id ON board_members(board_id);
 CREATE INDEX idx_board_members_user_id ON board_members(user_id);
+CREATE INDEX idx_board_stars_board_id ON board_stars(board_id);
+CREATE INDEX idx_board_stars_user_id ON board_stars(user_id);
 CREATE INDEX idx_assignees_card_id ON assignees(card_id);
 CREATE INDEX idx_assignees_user_id ON assignees(user_id);
 CREATE INDEX idx_comments_card_id ON comments(card_id);

@@ -3,8 +3,16 @@ import { useAuthStore } from "../store/auth";
 import { supabase } from "../lib/supabase";
 
 export const useAuth = () => {
-  const { user, session, loading, signOut, setUser, setSession, setLoading } =
-    useAuthStore();
+  const {
+    user,
+    session,
+    loading,
+    signOut,
+    setUser,
+    setSession,
+    setLoading,
+    isEmailVerified,
+  } = useAuthStore();
 
   useEffect(() => {
     // Get initial session
@@ -31,6 +39,6 @@ export const useAuth = () => {
     session,
     loading,
     signOut,
-    isAuthenticated: !!user,
+    isAuthenticated: isEmailVerified(user),
   };
 };

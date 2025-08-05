@@ -149,9 +149,37 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       console.log("📊 Owned boards:", ownedBoardsList.length);
       console.log("📊 Member boards:", memberBoardsList.length);
       console.log("📊 Total unique boards:", uniqueBoards.length);
-      console.log("✅ Setting user's boards:", uniqueBoards);
 
-      set({ boards: uniqueBoards, loading: false });
+      // Fetch starred status for all boards
+      const boardIds = uniqueBoards.map((board) => board.id);
+      const { data: starredBoards, error: starredError } = await supabase
+        .from("board_stars")
+        .select("board_id")
+        .eq("user_id", user.id)
+        .in("board_id", boardIds);
+
+      if (starredError) {
+        console.error("❌ Error fetching starred boards:", starredError);
+        throw starredError;
+      }
+
+      // Create a set of starred board IDs for quick lookup
+      const starredBoardIds = new Set(
+        starredBoards?.map((star) => star.board_id) || []
+      );
+
+      // Add is_starred property to each board
+      const boardsWithStarredStatus = uniqueBoards.map((board) => ({
+        ...board,
+        is_starred: starredBoardIds.has(board.id),
+      }));
+
+      console.log(
+        "✅ Setting user's boards with starred status:",
+        boardsWithStarredStatus
+      );
+
+      set({ boards: boardsWithStarredStatus, loading: false });
 
       // Preload board member data for all boards (only if we don't already have them)
       if (uniqueBoards.length > 0) {
@@ -290,22 +318,54 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       const board = boards.find((b) => b.id === id);
       if (!board) throw new Error("Board not found");
 
-      const newStarredValue = !board.is_starred;
+      // Get current user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
 
-      const { error } = await supabase
-        .from("boards")
-        .update({ is_starred: newStarredValue })
-        .eq("id", id);
+      // Check if board is currently starred by this user
+      const { data: existingStar } = await supabase
+        .from("board_stars")
+        .select("id")
+        .eq("board_id", id)
+        .eq("user_id", user.id)
+        .single();
 
-      if (error) throw error;
+      if (existingStar) {
+        // Remove star
+        const { error } = await supabase
+          .from("board_stars")
+          .delete()
+          .eq("board_id", id)
+          .eq("user_id", user.id);
 
-      // Update local state
-      set({
-        boards: boards.map((b) =>
-          b.id === id ? { ...b, is_starred: newStarredValue } : b
-        ),
-        loading: false,
-      });
+        if (error) throw error;
+
+        // Update local state - remove is_starred
+        set({
+          boards: boards.map((b) =>
+            b.id === id ? { ...b, is_starred: false } : b
+          ),
+          loading: false,
+        });
+      } else {
+        // Add star
+        const { error } = await supabase.from("board_stars").insert({
+          board_id: id,
+          user_id: user.id,
+        });
+
+        if (error) throw error;
+
+        // Update local state - add is_starred
+        set({
+          boards: boards.map((b) =>
+            b.id === id ? { ...b, is_starred: true } : b
+          ),
+          loading: false,
+        });
+      }
     } catch (error: any) {
       set({ error: error.message, loading: false });
     }
@@ -815,7 +875,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
     // Unsubscribe from existing board subscriptions
     realtimeChannels.forEach((channel) => {
-      if (channel.topic === "boards") {
+      if (channel.topic === "boards" || channel.topic === "board-stars") {
         supabase.removeChannel(channel);
       }
     });
@@ -874,7 +934,69 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         console.log("🔄 Boards subscription status:", status);
       });
 
-    set({ realtimeChannels: [...realtimeChannels, boardsChannel] });
+    // Subscribe to board_stars table changes
+    const boardStarsChannel = supabase
+      .channel("board-stars")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "board_stars",
+        },
+        async (payload) => {
+          console.log("🔄 Board stars real-time update:", payload);
+          const { boards } = get();
+
+          // Get current user to check if this star change affects us
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (!user) return;
+
+          switch (payload.eventType) {
+            case "INSERT":
+              // New star added - check if it's for current user
+              if (payload.new.user_id === user.id) {
+                console.log(
+                  "🔄 Adding star via real-time:",
+                  payload.new.board_id
+                );
+                set({
+                  boards: boards.map((board) =>
+                    board.id === payload.new.board_id
+                      ? { ...board, is_starred: true }
+                      : board
+                  ),
+                });
+              }
+              break;
+            case "DELETE":
+              // Star removed - check if it's for current user
+              if (payload.old.user_id === user.id) {
+                console.log(
+                  "🔄 Removing star via real-time:",
+                  payload.old.board_id
+                );
+                set({
+                  boards: boards.map((board) =>
+                    board.id === payload.old.board_id
+                      ? { ...board, is_starred: false }
+                      : board
+                  ),
+                });
+              }
+              break;
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log("🔄 Board stars subscription status:", status);
+      });
+
+    set({
+      realtimeChannels: [...realtimeChannels, boardsChannel, boardStarsChannel],
+    });
   },
 
   subscribeToBoard: (boardId: string) => {

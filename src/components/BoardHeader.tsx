@@ -1,18 +1,10 @@
 import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import {
-  Settings,
-  Users,
-  Trash2,
-  Share2,
-  MoreHorizontal,
-  Crown,
-  Shield,
-  User,
-} from "lucide-react";
+import { Settings, Users, Trash2, Crown, Shield, User } from "lucide-react";
 import { useBoardPermissions } from "../hooks/useBoardPermissions";
 import { BoardMemberManager } from "./BoardMemberManager";
+import { BoardSettingsModal } from "./BoardSettingsModal";
 import { toast } from "sonner";
 
 interface BoardHeaderProps {
@@ -131,12 +123,6 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
           </Button>
         )}
 
-        {/* Share Board - All members */}
-        <Button variant="outline" size="sm">
-          <Share2 className="h-4 w-4 mr-2" />
-          Share
-        </Button>
-
         {/* Delete Board - Only owners */}
         {permissions.canDeleteBoard && (
           <Button variant="destructive" size="sm" onClick={handleDeleteBoard}>
@@ -144,11 +130,6 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
             Delete
           </Button>
         )}
-
-        {/* More Options */}
-        <Button variant="ghost" size="sm">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
       </div>
 
       {/* Member Manager Modal */}
@@ -160,8 +141,15 @@ export const BoardHeader: React.FC<BoardHeaderProps> = ({
         />
       )}
 
-      {/* Settings Modal - You can implement this */}
-      {isSettingsOpen && <div>{/* Implement board settings modal */}</div>}
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <BoardSettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          board={board}
+          onUpdateBoard={onUpdateBoard}
+        />
+      )}
     </div>
   );
 };

@@ -141,11 +141,15 @@ export const AssigneeSelector = ({
                           member.user?.username ||
                           (member.user?.email
                             ? getUserDisplayName(member.user.email)
-                            : `User ${member.user_id.substring(0, 8)}`)}
+                            : member.user_id
+                            ? `User ${member.user_id.substring(0, 8)}`
+                            : "Unknown User")}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {member.user?.email ||
-                          `User ${member.user_id.substring(0, 8)}`}
+                          (member.user_id
+                            ? `User ${member.user_id.substring(0, 8)}`
+                            : "Unknown User")}
                       </div>
                     </div>
                   </div>

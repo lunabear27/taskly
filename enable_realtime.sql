@@ -28,10 +28,13 @@ ALTER PUBLICATION supabase_realtime ADD TABLE invitations;
 -- Enable real-time for notifications table
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 
+-- Enable real-time for board_stars table
+ALTER PUBLICATION supabase_realtime ADD TABLE board_stars;
+
 -- Verify real-time is enabled
 SELECT 
   schemaname,
   tablename,
   hasreplidentity
 FROM pg_tables 
-WHERE tablename IN ('boards', 'lists', 'cards', 'comments', 'board_members', 'assignees', 'tags', 'invitations', 'notifications'); 
+WHERE tablename IN ('boards', 'lists', 'cards', 'comments', 'board_members', 'assignees', 'tags', 'invitations', 'notifications', 'board_stars'); 

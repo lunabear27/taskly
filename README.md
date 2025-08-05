@@ -4,26 +4,32 @@ Taskly is a modern, collaborative project management application built with Reac
 
 ## 🚀 Features
 
-- **User Authentication**: Secure email/password authentication via Supabase Auth
+- **User Authentication**: Secure email/password authentication with email verification
 - **Board Management**: Create, edit, and organize boards with lists and cards
 - **Drag & Drop**: Intuitive drag-and-drop interface using @dnd-kit
 - **Real-time Updates**: Live collaboration with Supabase Realtime
-- **Dark Mode**: Toggle between light and dark themes
+- **Dark Mode**: Toggle between light and dark themes with persistent preference
 - **Responsive Design**: Works seamlessly on desktop and mobile devices
 - **TypeScript**: Full type safety throughout the application
-- **Modern UI**: Beautiful interface built with Tailwind CSS
-- **GitHub Integration**: Seamlessly connected to GitHub for version control
+- **Modern UI**: Beautiful interface built with Tailwind CSS and Shadcn/ui
+- **User-specific Board Starring**: Star boards for quick access (user-specific)
+- **Board Settings**: Edit board title and description
+- **Member Management**: Invite and manage board members with role-based permissions
+- **Email Verification**: Secure signup process with email verification requirement
+- **Rate Limiting Protection**: Smart handling of API rate limits with user-friendly feedback
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 18 + TypeScript + Vite
+- **Frontend**: React 19 + TypeScript + Vite
 - **Styling**: Tailwind CSS with dark mode support
+- **UI Components**: Shadcn/ui component library
 - **State Management**: Zustand for global state
 - **Drag & Drop**: @dnd-kit for smooth interactions
 - **Backend**: Supabase (PostgreSQL + Auth + Realtime)
-- **Routing**: React Router v6
+- **Routing**: React Router v7
 - **Icons**: Lucide React
 - **Date Handling**: date-fns
+- **Notifications**: Sonner for toast notifications
 
 ## 📦 Installation
 
@@ -55,121 +61,11 @@ Taskly is a modern, collaborative project management application built with Reac
    Run the following SQL in your Supabase SQL editor:
 
    ```sql
-   -- Enable Row Level Security
-   ALTER TABLE auth.users ENABLE ROW LEVEL SECURITY;
-
-   -- Create boards table
-   CREATE TABLE boards (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     title TEXT NOT NULL,
-     description TEXT,
-     created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     is_public BOOLEAN DEFAULT false
-   );
-
-   -- Create board_members table
-   CREATE TABLE board_members (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     board_id UUID REFERENCES boards(id) ON DELETE CASCADE,
-     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-     role TEXT CHECK (role IN ('owner', 'admin', 'member')) DEFAULT 'member',
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     UNIQUE(board_id, user_id)
-   );
-
-   -- Create lists table
-   CREATE TABLE lists (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     title TEXT NOT NULL,
-     board_id UUID REFERENCES boards(id) ON DELETE CASCADE,
-     position INTEGER NOT NULL,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
-
-   -- Create cards table
-   CREATE TABLE cards (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     title TEXT NOT NULL,
-     description TEXT,
-     list_id UUID REFERENCES lists(id) ON DELETE CASCADE,
-     position INTEGER NOT NULL,
-     due_date TIMESTAMP WITH TIME ZONE,
-     tags TEXT[] DEFAULT '{}',
-     created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
-
-   -- Create comments table
-   CREATE TABLE comments (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     content TEXT NOT NULL,
-     card_id UUID REFERENCES cards(id) ON DELETE CASCADE,
-     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
-
-   -- Create tags table
-   CREATE TABLE tags (
-     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-     name TEXT NOT NULL,
-     color TEXT NOT NULL,
-     board_id UUID REFERENCES boards(id) ON DELETE CASCADE,
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-   );
-
-   -- Enable RLS on all tables
-   ALTER TABLE boards ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE board_members ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE lists ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE cards ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE tags ENABLE ROW LEVEL SECURITY;
-
-   -- Create policies
-   -- Boards: Users can see public boards or boards they're members of
-   CREATE POLICY "Users can view boards they have access to" ON boards
-     FOR SELECT USING (
-       is_public = true OR
-       created_by = auth.uid() OR
-       EXISTS (
-         SELECT 1 FROM board_members
-         WHERE board_id = boards.id AND user_id = auth.uid()
-       )
-     );
-
-   -- Users can create boards
-   CREATE POLICY "Users can create boards" ON boards
-     FOR INSERT WITH CHECK (auth.uid() = created_by);
-
-   -- Users can update boards they own or are admin of
-   CREATE POLICY "Users can update boards they own or admin" ON boards
-     FOR UPDATE USING (
-       created_by = auth.uid() OR
-       EXISTS (
-         SELECT 1 FROM board_members
-         WHERE board_id = boards.id AND user_id = auth.uid() AND role IN ('owner', 'admin')
-       )
-     );
-
-   -- Users can delete boards they own
-   CREATE POLICY "Users can delete boards they own" ON boards
-     FOR DELETE USING (created_by = auth.uid());
-
-   -- Similar policies for other tables...
-   -- (Add comprehensive RLS policies for all tables)
-
-   -- Create indexes for better performance
-   CREATE INDEX idx_boards_created_by ON boards(created_by);
-   CREATE INDEX idx_lists_board_id ON lists(board_id);
-   CREATE INDEX idx_cards_list_id ON cards(list_id);
-   CREATE INDEX idx_board_members_board_id ON board_members(board_id);
-   CREATE INDEX idx_board_members_user_id ON board_members(user_id);
+   -- Run the complete database schema
+   -- Copy and paste the contents of tables.sql
    ```
+
+   Or run the individual commands from `tables.sql` and `enable_realtime.sql`.
 
 5. **Start the development server**
 
@@ -178,40 +74,50 @@ Taskly is a modern, collaborative project management application built with Reac
    ```
 
 6. **Open your browser**
-   Navigate to `http://localhost:5173`
+   Navigate to `http://localhost:5173` (or the port shown in terminal)
 
 ## 🎯 Usage
 
-1. **Sign up/Login**: Create an account or sign in with your email
-2. **Create Boards**: Start by creating your first board
-3. **Add Lists**: Organize your work with lists (e.g., "To Do", "In Progress", "Done")
-4. **Create Cards**: Add tasks as cards within lists
-5. **Drag & Drop**: Move cards between lists to track progress
-6. **Collaborate**: Invite team members to your boards
-7. **Real-time Updates**: See changes instantly across all connected clients
+1. **Sign up**: Create an account with email verification
+2. **Verify Email**: Check your email and click the verification link
+3. **Login**: Sign in with your verified account
+4. **Create Boards**: Start by creating your first board
+5. **Add Lists**: Organize your work with lists (e.g., "To Do", "In Progress", "Done")
+6. **Create Cards**: Add tasks as cards within lists
+7. **Drag & Drop**: Move cards between lists to track progress
+8. **Star Boards**: Click the star icon to favorite boards for quick access
+9. **Manage Members**: Invite team members to collaborate on boards
+10. **Real-time Updates**: See changes instantly across all connected clients
 
 ## 🏗️ Project Structure
 
 ```
 src/
 ├── components/          # Reusable UI components
-│   ├── ui/            # Base UI components (Button, Input, Modal)
+│   ├── ui/            # Base UI components (Button, Input, Modal, etc.)
 │   ├── Card.tsx       # Card component with drag-and-drop
-│   └── List.tsx       # List component with cards
+│   ├── List.tsx       # List component with cards
+│   ├── BoardHeader.tsx # Board header with actions
+│   ├── BoardSettingsModal.tsx # Board settings modal
+│   └── BoardMemberManager.tsx # Member management
 ├── hooks/             # Custom React hooks
 │   ├── useAuth.ts     # Authentication hook
-│   └── useBoards.ts   # Boards management hook
+│   ├── useBoards.ts   # Boards management hook
+│   ├── useDarkMode.ts # Dark mode management
+│   └── useBoardState.ts # Board state management
 ├── lib/               # Utility functions and configurations
 │   ├── supabase.ts    # Supabase client configuration
 │   └── utils.ts       # Helper functions
 ├── pages/             # Page components
 │   ├── Login.tsx      # Authentication page
-│   ├── Register.tsx   # Registration page
+│   ├── Register.tsx   # Registration page with email verification
 │   ├── Dashboard.tsx  # Main dashboard
 │   └── Board.tsx      # Board view with drag-and-drop
 ├── store/             # Zustand stores
 │   ├── auth.ts        # Authentication state
-│   └── boards.ts      # Boards and cards state
+│   ├── boards.ts      # Boards and cards state
+│   ├── boardMembers.ts # Board member management
+│   └── notifications.ts # Notification system
 └── types/             # TypeScript type definitions
     └── index.ts       # All type interfaces
 ```
@@ -227,13 +133,20 @@ VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
+### Database Setup
+
+1. **Run the main schema**: Execute `tables.sql` in your Supabase SQL editor
+2. **Enable real-time**: Execute `enable_realtime.sql` to enable real-time subscriptions
+3. **Verify setup**: Check that all tables have RLS policies enabled
+
 ### Tailwind Configuration
 
 The project includes a custom Tailwind configuration with:
 
-- Dark mode support
+- Dark mode support with persistent preference
 - Custom color palette
 - Responsive design utilities
+- Shadcn/ui component styling
 
 ## 🚀 Deployment
 
@@ -241,7 +154,9 @@ The project includes a custom Tailwind configuration with:
 
 1. Push your code to GitHub
 2. Connect your repository to Vercel
-3. Add environment variables in Vercel dashboard
+3. Add environment variables in Vercel dashboard:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
 4. Deploy!
 
 ### Netlify
@@ -249,6 +164,20 @@ The project includes a custom Tailwind configuration with:
 1. Build the project: `npm run build`
 2. Deploy the `dist` folder to Netlify
 3. Add environment variables in Netlify dashboard
+
+## 🐛 Known Issues & Solutions
+
+### Rate Limiting
+
+- The app includes smart rate limiting handling for email verification
+- Users will see a countdown timer when hitting rate limits
+- This prevents spam and protects the Supabase service
+
+### Email Verification
+
+- Users must verify their email before logging in
+- Clear notifications guide users through the process
+- Rate limiting protection prevents abuse
 
 ## 🤝 Contributing
 
@@ -267,4 +196,6 @@ This project is licensed under the MIT License.
 - [Supabase](https://supabase.com) for the backend infrastructure
 - [@dnd-kit](https://dndkit.com) for the drag-and-drop functionality
 - [Tailwind CSS](https://tailwindcss.com) for the styling framework
+- [Shadcn/ui](https://ui.shadcn.com) for the beautiful component library
 - [Lucide](https://lucide.dev) for the beautiful icons
+- [Sonner](https://sonner.emilkowal.ski) for toast notifications
