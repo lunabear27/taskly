@@ -412,18 +412,23 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   },
 
   deleteList: async (id: string) => {
+    console.log("🗑️ deleteList called with id:", id);
     set({ loading: true, error: null });
     try {
       const { error } = await supabase.from("lists").delete().eq("id", id);
 
       if (error) throw error;
 
+      console.log("🗑️ List deleted from database successfully");
+
+      // Update local state optimistically
       const { lists } = get();
       set({
         lists: lists.filter((l) => l.id !== id),
         loading: false,
       });
     } catch (error: any) {
+      console.error("🗑️ Error deleting list:", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -928,11 +933,41 @@ export const useBoardStore = create<BoardState>((set, get) => ({
           event: "*",
           schema: "public",
           table: "lists",
-          filter: `board_id=eq.${boardId}`,
+          // Temporarily remove filter to debug DELETE events
+          // filter: `board_id=eq.${boardId}`,
         },
         (payload) => {
           console.log("🔄 Lists real-time update:", payload);
           const { lists } = get();
+
+          // Manual filter for board_id since we removed the database filter
+          if (
+            payload.eventType === "INSERT" ||
+            payload.eventType === "UPDATE"
+          ) {
+            if (payload.new?.board_id !== boardId) {
+              console.log(
+                "🔄 Skipping event - wrong board_id:",
+                payload.new?.board_id,
+                "expected:",
+                boardId
+              );
+              return;
+            }
+          } else if (payload.eventType === "DELETE") {
+            // For DELETE events, we need to check if the deleted list belonged to this board
+            // Since we don't have board_id in DELETE payload, we'll check if the list exists in our current lists
+            const deletedList = lists.find(
+              (list) => list.id === payload.old?.id
+            );
+            if (!deletedList) {
+              console.log(
+                "🔄 Skipping DELETE event - list not found in current board:",
+                payload.old?.id
+              );
+              return;
+            }
+          }
 
           switch (payload.eventType) {
             case "INSERT":
@@ -991,6 +1026,13 @@ export const useBoardStore = create<BoardState>((set, get) => ({
               break;
             case "DELETE":
               // List deleted
+              console.log("🔄 DELETE event received:", {
+                deletedListId: payload.old.id,
+                currentLists: lists.map((l) => ({ id: l.id, title: l.title })),
+                filteredLists: lists
+                  .filter((list) => list.id !== payload.old.id)
+                  .map((l) => ({ id: l.id, title: l.title })),
+              });
               set({
                 lists: lists.filter((list) => list.id !== payload.old.id),
               });

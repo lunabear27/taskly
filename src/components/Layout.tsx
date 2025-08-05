@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useBoards } from "../hooks/useBoards";
-import { useBoardMemberStore } from "../store/boardMembers";
 import { useNotificationStore } from "../store/notifications";
 import { useUserProfileStore } from "../store/userProfile";
 import { Button } from "./ui/button";
@@ -12,7 +11,6 @@ import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
 import { NotificationPanel } from "./NotificationPanel";
 import { ProfileSettings } from "./ProfileSettings";
-import { BoardMembers } from "./BoardMembers";
 
 import {
   DropdownMenu,
@@ -300,12 +298,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       <Kanban className="h-3 w-3 mr-2" />
                       <span className="truncate flex-1">{board.title}</span>
                       <div className="flex items-center gap-1 ml-auto">
-                        <BoardMembers
-                          boardId={board.id}
-                          maxDisplay={2}
-                          showCount={false}
-                          size="sm"
-                        />
                         {board.is_public && (
                           <Badge
                             variant="secondary"
@@ -376,12 +368,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       <Kanban className="h-3 w-3 mr-2" />
                       <span className="truncate flex-1">{board.title}</span>
                       <div className="flex items-center gap-1 ml-auto">
-                        <BoardMembers
-                          boardId={board.id}
-                          maxDisplay={2}
-                          showCount={false}
-                          size="sm"
-                        />
                         <Badge
                           variant="secondary"
                           className="text-xs flex items-center gap-1"
@@ -450,12 +436,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       <Kanban className="h-3 w-3 mr-2" />
                       <span className="truncate flex-1">{board.title}</span>
                       <div className="flex items-center gap-1 ml-auto">
-                        <BoardMembers
-                          boardId={board.id}
-                          maxDisplay={2}
-                          showCount={false}
-                          size="sm"
-                        />
                         <Badge
                           variant="secondary"
                           className="text-xs flex items-center gap-1"
