@@ -12,8 +12,6 @@ import { BoardModals } from "../components/BoardModals";
 import { BoardLoading } from "../components/BoardLoading";
 import { BoardNotFound } from "../components/BoardNotFound";
 import { TagManager } from "../components/TagManager";
-import { PermissionTest } from "../components/PermissionTest";
-import { RealtimeTest } from "../components/RealtimeTest";
 
 export const Board = () => {
   const { boardId } = useParams<{ boardId: string }>();
@@ -112,15 +110,7 @@ export const Board = () => {
         onClose={() => setIsTagManagerOpen(false)}
       />
 
-      {/* Permission Test Component - Remove this in production */}
-      <div className="p-4">
-        <PermissionTest boardId={board.id} />
-      </div>
 
-      {/* Realtime Test Component - Remove this in production */}
-      <div className="p-4">
-        <RealtimeTest />
-      </div>
     </div>
   );
 };
