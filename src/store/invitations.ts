@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
+import { logger } from "../lib/logger";
 import { useNotificationStore } from "./notifications";
 
 interface Invitation {
@@ -67,18 +68,14 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
 
       if (error) throw error;
 
-      console.log(
-        "📧 Fetched invitations:",
-        invitations?.map((i) => ({
-          id: i.id,
-          status: i.status,
-          email: i.invited_email,
-        }))
-      );
+      logger.log("Fetched invitations", {
+        count: invitations?.length || 0,
+        statuses: invitations?.map((i) => i.status) || [],
+      });
 
       set({ invitations: invitations || [], loading: false });
     } catch (error: any) {
-      console.error("❌ Error fetching invitations:", error);
+      logger.error("Error fetching invitations", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -114,8 +111,8 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
         } catch (error: any) {
           // If we get a 406 error, assume the user is not a member and continue
           if (error.code === "PGRST116" || error.message?.includes("406")) {
-            console.log(
-              "⚠️ Could not check existing member status, proceeding with invitation"
+            logger.warn(
+              "Could not check existing member status, proceeding with invitation"
             );
           } else {
             throw error;
@@ -141,8 +138,8 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
       } catch (error: any) {
         // If we get a 406 error, assume no existing invitation and continue
         if (error.code === "PGRST116" || error.message?.includes("406")) {
-          console.log(
-            "⚠️ Could not check existing invitation status, proceeding with new invitation"
+          logger.warn(
+            "Could not check existing invitation status, proceeding with new invitation"
           );
         } else {
           throw error;
@@ -169,9 +166,9 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
       } catch (error: any) {
         // If we get a 406 error, assume no rejected invitation and continue
         if (error.code === "PGRST116" || error.message?.includes("406")) {
-          console.log("⚠️ Could not check rejected invitations, proceeding");
+          logger.warn("Could not check rejected invitations, proceeding");
         } else {
-          console.log("⚠️ Error checking rejected invitations:", error);
+          logger.error("Error checking rejected invitations", error);
         }
       }
 
@@ -194,9 +191,9 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
       } catch (error: any) {
         // If we get a 406 error, assume no accepted invitation and continue
         if (error.code === "PGRST116" || error.message?.includes("406")) {
-          console.log("⚠️ Could not check accepted invitations, proceeding");
+          logger.warn("Could not check accepted invitations, proceeding");
         } else {
-          console.log("⚠️ Error checking accepted invitations:", error);
+          logger.error("Error checking accepted invitations", error);
         }
       }
 
@@ -214,7 +211,7 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
 
       if (error) throw error;
 
-      console.log("✅ Created invitation:", {
+      logger.log("Created invitation", {
         id: invitation.id,
         status: invitation.status,
         email: invitation.invited_email,
@@ -244,7 +241,7 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
 
       return invitation;
     } catch (error: any) {
-      console.error("❌ Error creating invitation:", error);
+      logger.error("Error creating invitation", error);
       set({ error: error.message, loading: false });
       return null;
     }
@@ -269,12 +266,10 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
         throw new Error("Invitation not found");
       }
 
-      console.log(
-        "🔍 Invitation status:",
-        invitation.status,
-        "for invitation:",
-        invitationId
-      );
+      logger.log("Invitation status", {
+        status: invitation.status,
+        invitationId,
+      });
 
       if (invitation.status !== "pending") {
         throw new Error(
@@ -332,13 +327,15 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
           await notificationStore.deleteNotification(notifications[0].id);
         }
       } catch (error) {
-        console.log("⚠️ Could not delete invitation notification:", error);
+        logger.warn("Could not delete invitation notification", {
+          error: error.message,
+        });
       }
 
       // Refresh invitations
       await get().fetchInvitations();
     } catch (error: any) {
-      console.error("❌ Error accepting invitation:", error);
+      logger.error("Error accepting invitation", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -400,13 +397,15 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
           await notificationStore.deleteNotification(notifications[0].id);
         }
       } catch (error) {
-        console.log("⚠️ Could not delete invitation notification:", error);
+        logger.warn("Could not delete invitation notification", {
+          error: error.message,
+        });
       }
 
       // Refresh invitations
       await get().fetchInvitations();
     } catch (error: any) {
-      console.error("❌ Error rejecting invitation:", error);
+      logger.error("Error rejecting invitation", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -424,7 +423,7 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
       // Refresh invitations
       await get().fetchInvitations();
     } catch (error: any) {
-      console.error("❌ Error deleting invitation:", error);
+      logger.error("Error deleting invitation", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -483,7 +482,7 @@ export const useInvitationStore = create<InvitationState>((set, get) => ({
       // Refresh invitations
       await get().fetchInvitations();
     } catch (error: any) {
-      console.error("❌ Error resending invitation:", error);
+      logger.error("Error resending invitation", error);
       set({ error: error.message, loading: false });
     }
   },

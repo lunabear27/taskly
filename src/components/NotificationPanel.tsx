@@ -157,11 +157,6 @@ export const NotificationPanel = ({
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Notifications</span>
-            {unreadCount > 0 && (
-              <Badge variant="destructive" className="text-xs">
-                {unreadCount}
-              </Badge>
-            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -207,7 +202,7 @@ export const NotificationPanel = ({
                   className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                     notification.is_read
                       ? "bg-card"
-                      : "bg-blue-50 border-blue-200"
+                      : "bg-blue-500/10 border-blue-500/20 dark:bg-blue-500/5 dark:border-blue-500/10"
                   }`}
                   onClick={() => handleNotificationClick(notification)}
                 >

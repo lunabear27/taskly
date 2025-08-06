@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useBoards } from "../hooks/useBoards";
 import { supabase } from "../lib/supabase";
 import { Button } from "../components/ui/button";
@@ -114,7 +114,11 @@ const EnhancedBoardCard = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
-                <span>{formatDate(board.updated_at || board.created_at)}</span>
+                <span>
+                  {formatDate(
+                    board.last_opened_at || board.updated_at || board.created_at
+                  )}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 {isShared && (
@@ -140,16 +144,6 @@ const EnhancedBoardCard = ({
                 showCount={false}
                 size="sm"
               />
-
-              {/* Quick actions */}
-              <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                  <Share2 className="h-3 w-3" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                  <MoreHorizontal className="h-3 w-3" />
-                </Button>
-              </div>
             </div>
           </div>
         </CardContent>
@@ -178,22 +172,15 @@ const ListBoardCard = ({ board }: { board: any }) => {
                 <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   <span>
-                    {formatDate(board.updated_at || board.created_at)}
+                    {formatDate(
+                      board.last_opened_at ||
+                        board.updated_at ||
+                        board.created_at
+                    )}
                   </span>
                 </div>
               </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-1">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <Star className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <Share2 className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </CardContent>
@@ -220,7 +207,6 @@ export const Dashboard = () => {
 
   const [sortBy, setSortBy] = useState("last-edited");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [showFilters, setShowFilters] = useState(false);
 
   // Get current user
   useEffect(() => {
@@ -276,18 +262,36 @@ export const Dashboard = () => {
       case "last-edited":
         filtered.sort(
           (a, b) =>
-            new Date(b.updated_at || b.created_at).getTime() -
-            new Date(a.updated_at || a.created_at).getTime()
+            new Date(
+              b.last_opened_at || b.updated_at || b.created_at
+            ).getTime() -
+            new Date(a.last_opened_at || a.updated_at || a.created_at).getTime()
         );
         break;
       case "name":
         filtered.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case "name-desc":
+        filtered.sort((a, b) => b.title.localeCompare(a.title));
         break;
       case "created":
         filtered.sort(
           (a, b) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
+        break;
+      case "starred":
+        filtered.sort((a, b) => {
+          // Starred boards first, then by last opened
+          if (a.is_starred && !b.is_starred) return -1;
+          if (!a.is_starred && b.is_starred) return 1;
+          return (
+            new Date(
+              b.last_opened_at || b.updated_at || b.created_at
+            ).getTime() -
+            new Date(a.last_opened_at || a.updated_at || a.created_at).getTime()
+          );
+        });
         break;
       default:
         break;
@@ -296,13 +300,56 @@ export const Dashboard = () => {
     return filtered;
   }, [boards, searchTerm, sortBy]);
 
-  // Separate boards into categories
-  const starredBoards = boards.filter((board) => board.is_starred);
-  const ownedBoards = boards.filter(
-    (board) => board.created_by === currentUser?.id
+  // Separate boards into categories and apply sorting
+  const sortBoards = (boardsToSort: any[]) => {
+    const sorted = [...boardsToSort];
+    switch (sortBy) {
+      case "last-edited":
+        sorted.sort(
+          (a, b) =>
+            new Date(
+              b.last_opened_at || b.updated_at || b.created_at
+            ).getTime() -
+            new Date(a.last_opened_at || a.updated_at || a.created_at).getTime()
+        );
+        break;
+      case "name":
+        sorted.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case "name-desc":
+        sorted.sort((a, b) => b.title.localeCompare(a.title));
+        break;
+      case "created":
+        sorted.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        break;
+      case "starred":
+        sorted.sort((a, b) => {
+          // Starred boards first, then by last opened
+          if (a.is_starred && !b.is_starred) return -1;
+          if (!a.is_starred && b.is_starred) return 1;
+          return (
+            new Date(
+              b.last_opened_at || b.updated_at || b.created_at
+            ).getTime() -
+            new Date(a.last_opened_at || a.updated_at || a.created_at).getTime()
+          );
+        });
+        break;
+      default:
+        break;
+    }
+    return sorted;
+  };
+
+  const starredBoards = sortBoards(boards.filter((board) => board.is_starred));
+  const ownedBoards = sortBoards(
+    boards.filter((board) => board.created_by === currentUser?.id)
   );
-  const sharedBoards = boards.filter(
-    (board) => board.created_by !== currentUser?.id
+  const sharedBoards = sortBoards(
+    boards.filter((board) => board.created_by !== currentUser?.id)
   );
 
   // Enhanced board statistics
@@ -318,15 +365,29 @@ export const Dashboard = () => {
     return { total, recentBoards };
   }, [boards]);
 
+  const navigate = useNavigate();
+
   const handleCreateBoard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBoardTitle.trim()) return;
 
-    await createBoard(newBoardTitle.trim(), newBoardDescription.trim() || "");
+    try {
+      const newBoard = await createBoard(
+        newBoardTitle.trim(),
+        newBoardDescription.trim() || ""
+      );
 
-    setNewBoardTitle("");
-    setNewBoardDescription("");
-    setIsCreateModalOpen(false);
+      setNewBoardTitle("");
+      setNewBoardDescription("");
+      setIsCreateModalOpen(false);
+
+      // Redirect to the new board
+      if (newBoard && newBoard.id) {
+        navigate(`/board/${newBoard.id}`);
+      }
+    } catch (error) {
+      console.error("Error creating board:", error);
+    }
   };
 
   return (
@@ -396,15 +457,6 @@ export const Dashboard = () => {
             />
           </div>
           <div className="flex items-center space-x-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className={showFilters ? "bg-accent" : ""}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-            </Button>
             <div className="flex items-center space-x-1 border rounded-md">
               <Button
                 variant={viewMode === "grid" ? "default" : "ghost"}
@@ -430,71 +482,26 @@ export const Dashboard = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="last-edited">Last Edited</SelectItem>
-                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="last-edited">Last Opened</SelectItem>
+                  <SelectItem value="name">Name (A-Z)</SelectItem>
+                  <SelectItem value="name-desc">Name (Z-A)</SelectItem>
                   <SelectItem value="created">Date Created</SelectItem>
+                  <SelectItem value="starred">Starred First</SelectItem>
                 </SelectContent>
               </Select>
+              {sortBy !== "last-edited" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSortBy("last-edited")}
+                  className="h-8 px-2 text-xs"
+                >
+                  Reset
+                </Button>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Advanced Filters */}
-        {showFilters && (
-          <div className="bg-card rounded-lg p-4 border border-border mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Visibility
-                </label>
-                <Select defaultValue="all">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Boards</SelectItem>
-                    <SelectItem value="public">Public Only</SelectItem>
-                    <SelectItem value="private">Private Only</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Date Range
-                </label>
-                <Select defaultValue="all">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Status</label>
-                <Select defaultValue="all">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button variant="outline" size="sm" className="w-full">
-                  Clear Filters
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Starred Boards Section */}
@@ -560,7 +567,25 @@ export const Dashboard = () => {
       {/* Enhanced Boards Display */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">All Boards</h2>
+          <div className="flex items-center space-x-3">
+            <h2 className="text-xl font-semibold">All Boards</h2>
+            {sortBy !== "last-edited" && (
+              <Badge variant="secondary" className="text-xs">
+                Sorted by{" "}
+                {sortBy === "last-edited"
+                  ? "Last Opened"
+                  : sortBy === "name"
+                  ? "Name (A-Z)"
+                  : sortBy === "name-desc"
+                  ? "Name (Z-A)"
+                  : sortBy === "created"
+                  ? "Date Created"
+                  : sortBy === "starred"
+                  ? "Starred First"
+                  : "Custom"}
+              </Badge>
+            )}
+          </div>
           <div className="flex items-center space-x-2 text-sm text-muted-foreground">
             <span>{filteredBoards.length} boards</span>
             {filteredBoards.length !== boards.length && (

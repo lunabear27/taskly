@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { logger } from "./logger";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -26,11 +27,11 @@ export const supabase = createClient(
 
 // Log configuration status
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    "⚠️ Supabase environment variables not found. Please create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY"
+  logger.warn(
+    "Supabase environment variables not found. Please create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY"
   );
 } else {
-  console.log("✅ Supabase client configured successfully");
+  logger.log("Supabase client configured successfully");
 }
 
 export default supabase;

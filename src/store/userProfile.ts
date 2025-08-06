@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
+import { logger } from "../lib/logger";
 
 interface UserProfile {
   id: string;
@@ -70,7 +71,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
         set({ profile, loading: false });
       }
     } catch (error: any) {
-      console.error("❌ Error fetching profile:", error);
+      logger.error("Error fetching profile", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -95,7 +96,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
 
       set({ profile, loading: false });
     } catch (error: any) {
-      console.error("❌ Error updating profile:", error);
+      logger.error("Error updating profile", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -132,7 +133,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
 
       return avatarUrl;
     } catch (error: any) {
-      console.error("❌ Error updating avatar:", error);
+      logger.error("Error updating avatar", error);
       set({ error: error.message, loading: false });
       return null;
     }
@@ -158,7 +159,7 @@ export const useUserProfileStore = create<UserProfileState>((set, get) => ({
       // Update profile to remove avatar URL
       await get().updateProfile({ avatar_url: null });
     } catch (error: any) {
-      console.error("❌ Error deleting avatar:", error);
+      logger.error("Error deleting avatar", error);
       set({ error: error.message, loading: false });
     }
   },

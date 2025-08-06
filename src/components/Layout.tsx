@@ -599,12 +599,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs"
-                >
-                  {unreadCount}
-                </Badge>
+                <div className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-red-500 rounded-full animate-pulse" />
               )}
             </Button>
             <div className="hidden md:flex items-center space-x-2 text-sm text-muted-foreground">

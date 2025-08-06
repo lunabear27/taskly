@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
+import { logger } from "../lib/logger";
 import type { Comment } from "../types";
 
 interface CommentState {
@@ -31,7 +32,7 @@ export const useCommentStore = create<CommentState>((set, get) => ({
   fetchComments: async (cardId: string) => {
     set({ loading: true, error: null });
     try {
-      console.log("🔍 Fetching comments for cardId:", cardId);
+      logger.log("Fetching comments for cardId", { cardId });
 
       const { data: comments, error } = await supabase
         .from("comments")
@@ -39,7 +40,10 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         .eq("card_id", cardId)
         .order("created_at", { ascending: true });
 
-      console.log("📊 Comments fetch result:", { comments, error });
+      logger.log("Comments fetch result", {
+        count: comments?.length || 0,
+        error: error?.message,
+      });
 
       if (error) throw error;
 
@@ -117,9 +121,9 @@ export const useCommentStore = create<CommentState>((set, get) => ({
       });
 
       set({ comments: commentsWithUsers, loading: false });
-      console.log("✅ Comments set in store:", commentsWithUsers);
+      logger.log("Comments set in store", { count: commentsWithUsers.length });
     } catch (error: any) {
-      console.error("❌ Error fetching comments:", error);
+      logger.error("Error fetching comments", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -127,17 +131,15 @@ export const useCommentStore = create<CommentState>((set, get) => ({
   createComment: async (cardId: string, content: string) => {
     set({ loading: true, error: null });
     try {
-      console.log(
-        "➕ Creating comment for cardId:",
+      logger.log("Creating comment for cardId", {
         cardId,
-        "content:",
-        content
-      );
+        contentLength: content.length,
+      });
 
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error("User not authenticated");
 
-      console.log("👤 Current user:", user.user);
+      logger.log("Current user", { userId: user.user.id });
 
       // First, create the comment without the user join
       const { data: comment, error } = await supabase
@@ -150,18 +152,21 @@ export const useCommentStore = create<CommentState>((set, get) => ({
         .select("*")
         .single();
 
-      console.log("📝 Comment creation result:", { comment, error });
+      logger.log("Comment creation result", {
+        commentId: comment?.id,
+        error: error?.message,
+      });
 
       if (error) throw error;
 
-      console.log("✅ Comment created successfully:", comment);
+      logger.log("Comment created successfully", { commentId: comment.id });
 
       // Refresh comments to ensure we have the latest data with user info
       await get().fetchComments(cardId);
 
       return comment;
     } catch (error: any) {
-      console.error("❌ Error creating comment:", error);
+      logger.error("Error creating comment", error);
       set({ error: error.message, loading: false });
       return null;
     }
@@ -233,7 +238,9 @@ export const useCommentStore = create<CommentState>((set, get) => ({
           filter: `card_id=eq.${cardId}`,
         },
         (payload) => {
-          console.log("🔄 Comments real-time update:", payload);
+          logger.realtime("Comments real-time update", {
+            eventType: payload.eventType,
+          });
           const { comments } = get();
 
           switch (payload.eventType) {

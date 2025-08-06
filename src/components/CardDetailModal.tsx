@@ -44,6 +44,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import type { Card as CardType } from "../types";
 import { AssigneeSelector } from "./AssigneeSelector";
+import { formatDueDate } from "../lib/utils";
 
 interface CardDetailModalProps {
   card: CardType;
@@ -93,7 +94,19 @@ export const CardDetailModal = React.memo<CardDetailModalProps>(
     const [newChecklistItem, setNewChecklistItem] = useState("");
     const [newComment, setNewComment] = useState("");
     const [isEditingDueDate, setIsEditingDueDate] = useState(false);
-    const [editDueDate, setEditDueDate] = useState(card.due_date || "");
+    const [editDueDate, setEditDueDate] = useState(() => {
+      if (card.due_date) {
+        // Convert the ISO string to local datetime format for the input
+        const date = new Date(card.due_date);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      }
+      return "";
+    });
     const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
     const [newTagName, setNewTagName] = useState("");
     const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0].value);
@@ -108,11 +121,25 @@ export const CardDetailModal = React.memo<CardDetailModalProps>(
         fetchComments(card.id);
         fetchAssignees(card.id);
         setChecklist(card.checklist || []);
+
+        // Update editDueDate when card changes
+        if (card.due_date) {
+          const date = new Date(card.due_date);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+          const hours = String(date.getHours()).padStart(2, "0");
+          const minutes = String(date.getMinutes()).padStart(2, "0");
+          setEditDueDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+        } else {
+          setEditDueDate("");
+        }
       }
     }, [
       isOpen,
       boardId,
       card.id,
+      card.due_date,
       fetchTags,
       fetchComments,
       fetchAssignees,
@@ -134,8 +161,16 @@ export const CardDetailModal = React.memo<CardDetailModalProps>(
     }, [editDescription, card.id, onUpdate]);
 
     const handleSaveDueDate = useCallback(async () => {
+      let dueDateToSave = undefined;
+
+      if (editDueDate) {
+        // Convert the local datetime to ISO string to preserve timezone information
+        const localDate = new Date(editDueDate);
+        dueDateToSave = localDate.toISOString();
+      }
+
       await onUpdate(card.id, {
-        due_date: editDueDate || undefined,
+        due_date: dueDateToSave,
       });
       setIsEditingDueDate(false);
     }, [editDueDate, card.id, onUpdate]);
@@ -257,7 +292,7 @@ export const CardDetailModal = React.memo<CardDetailModalProps>(
       return tags.filter((tag) => !(card.tags || []).includes(tag.id));
     }, [tags, card.tags]);
 
-    const formatDate = (date: string) => new Date(date).toLocaleDateString();
+    // Removed local formatDate function - using imported formatDueDate instead
 
     const getUserDisplayName = (email: string) => {
       const username = email.split("@")[0];
@@ -771,7 +806,7 @@ export const CardDetailModal = React.memo<CardDetailModalProps>(
                           <Clock className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">
                             {card.due_date
-                              ? formatDate(card.due_date)
+                              ? formatDueDate(card.due_date)
                               : "No due date set"}
                           </span>
                         </div>

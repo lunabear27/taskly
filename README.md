@@ -2,6 +2,8 @@
 
 Taskly is a modern, collaborative project management application built with React, TypeScript, and Supabase. It provides a Trello-like experience with real-time updates, drag-and-drop functionality, and team collaboration features.
 
+<!-- Test comment for automatic redeployment verification -->
+
 ## 🚀 Features
 
 - **User Authentication**: Secure email/password authentication with email verification

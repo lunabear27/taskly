@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useBoards } from "./useBoards";
+import { logger } from "../lib/logger";
 import { useTagStore } from "../store/tags";
 import { useBoardMemberStore } from "../store/boardMembers";
 import type { Board, List, Card } from "../types";
@@ -62,7 +63,7 @@ export const useBoardState = (boardId: string) => {
           setLoading(false);
         })
         .catch((err) => {
-          console.error("Error fetching lists:", err);
+          logger.error("Error fetching lists", err);
           setError("Failed to load lists");
           setLoading(false);
         });
@@ -152,9 +153,9 @@ export const useBoardState = (boardId: string) => {
     async (id: string, updates: Partial<List>) => {
       try {
         await updateList(id, updates);
-        console.log("List updated successfully");
+        logger.log("List updated successfully");
       } catch (error) {
-        console.error("Error updating list:", error);
+        logger.error("Error updating list", error);
       }
     },
     [updateList]
@@ -164,9 +165,9 @@ export const useBoardState = (boardId: string) => {
     async (id: string) => {
       try {
         await deleteList(id);
-        console.log("List deleted successfully");
+        logger.log("List deleted successfully");
       } catch (error) {
-        console.error("Error deleting list:", error);
+        logger.error("Error deleting list", error);
       }
     },
     [deleteList]
@@ -176,9 +177,9 @@ export const useBoardState = (boardId: string) => {
     async (id: string, updates: Partial<Card>) => {
       try {
         await updateCard(id, updates);
-        console.log("Card updated successfully");
+        logger.log("Card updated successfully");
       } catch (error) {
-        console.error("Error updating card:", error);
+        logger.error("Error updating card", error);
       }
     },
     [updateCard]
@@ -188,9 +189,9 @@ export const useBoardState = (boardId: string) => {
     async (id: string) => {
       try {
         await deleteCard(id);
-        console.log("Card deleted successfully");
+        logger.log("Card deleted successfully");
       } catch (error) {
-        console.error("Error deleting card:", error);
+        logger.error("Error deleting card", error);
       }
     },
     [deleteCard]
@@ -200,9 +201,9 @@ export const useBoardState = (boardId: string) => {
     async (cardId: string, newListId: string, newPosition: number) => {
       try {
         await moveCard(cardId, newListId, newPosition);
-        console.log("Card moved successfully");
+        logger.log("Card moved successfully");
       } catch (error) {
-        console.error("Error moving card:", error);
+        logger.error("Error moving card", error);
       }
     },
     [moveCard]
@@ -212,9 +213,9 @@ export const useBoardState = (boardId: string) => {
     async (listId: string, newPosition: number) => {
       try {
         await moveList(listId, newPosition);
-        console.log("List moved successfully");
+        logger.log("List moved successfully");
       } catch (error) {
-        console.error("Error moving list:", error);
+        logger.error("Error moving list", error);
       }
     },
     [moveList]

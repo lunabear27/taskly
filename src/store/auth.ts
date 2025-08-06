@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
+import { authLogger } from "../lib/logger";
 import type { User } from "../types";
 
 interface AuthState {
@@ -41,7 +42,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signUp: async (email: string, password: string) => {
-    console.log("Auth store: Starting signup for", email);
+    authLogger.log("Starting signup", { email });
     set({ loading: true });
 
     try {
@@ -50,7 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         password,
       });
 
-      console.log("Auth store: Signup response", { data, error });
+      authLogger.log("Signup response", { hasData: !!data, hasError: !!error });
 
       // Don't set user/session immediately after signup
       // User needs to verify email first
@@ -58,7 +59,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       return { error };
     } catch (error) {
-      console.log("Auth store: Signup caught error", error);
+      authLogger.error("Signup caught error", error);
       set({ loading: false });
       return { error };
     }

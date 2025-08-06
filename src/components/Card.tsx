@@ -34,7 +34,7 @@ import {
   Sparkles,
   MessageCircle,
 } from "lucide-react";
-import { formatDate, isOverdue } from "../lib/utils";
+import { formatDate, formatDueDate, isOverdue } from "../lib/utils";
 import type { Card as CardType } from "../types";
 import { useCommentCount } from "../hooks/useCommentCount";
 import { useTagStore } from "../store/tags";
@@ -321,7 +321,7 @@ export const Card = React.memo<CardProps>(
                           {dueDateStatus.status === "tomorrow" &&
                             "Due tomorrow"}
                           {dueDateStatus.status === "upcoming" &&
-                            formatDate(card.due_date!)}
+                            formatDueDate(card.due_date!)}
                         </Badge>
                       )}
                       {checklistProgress() && (

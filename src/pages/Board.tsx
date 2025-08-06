@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useBoardState } from "../hooks/useBoardState";
 import { useBoards } from "../hooks/useBoards";
 import { useDragAndDrop } from "../hooks/useDragAndDrop";
 import { useDragPrevention } from "../hooks/useDragPrevention";
 import { useAuth } from "../hooks/useAuth";
+import { supabase } from "../lib/supabase";
 
 import { BoardHeader } from "../components/BoardHeader";
 import { BoardContent } from "../components/BoardContent";
@@ -45,6 +46,24 @@ export const Board = () => {
 
   const { updateBoard, deleteBoard } = useBoards();
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
+
+  // Update last_opened_at when board is accessed
+  useEffect(() => {
+    if (board && boardId) {
+      const updateLastOpened = async () => {
+        try {
+          await supabase
+            .from("boards")
+            .update({ last_opened_at: new Date().toISOString() })
+            .eq("id", boardId);
+        } catch (error) {
+          console.error("Error updating last_opened_at:", error);
+        }
+      };
+
+      updateLastOpened();
+    }
+  }, [board, boardId]);
 
   const { activeId, onDragStart, onDragOver, onDragEnd } = useDragAndDrop({
     lists,
@@ -109,8 +128,6 @@ export const Board = () => {
         isOpen={isTagManagerOpen}
         onClose={() => setIsTagManagerOpen(false)}
       />
-
-
     </div>
   );
 };

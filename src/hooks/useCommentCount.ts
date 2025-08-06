@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { logger } from "../lib/logger";
 
 export const useCommentCount = (cardId: string) => {
   const [count, setCount] = useState(0);
@@ -16,14 +17,14 @@ export const useCommentCount = (cardId: string) => {
           .eq("card_id", cardId);
 
         if (error) {
-          console.error("Error fetching comment count:", error);
+          logger.error("Error fetching comment count", error);
           return;
         }
 
         // The count is returned in the response metadata
         setCount(data?.length || 0);
       } catch (error) {
-        console.error("Error fetching comment count:", error);
+        logger.error("Error fetching comment count", error);
       } finally {
         setLoading(false);
       }
@@ -49,9 +50,9 @@ export const useCommentCount = (cardId: string) => {
       )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
-          console.log(`Subscribed to comment count for card ${cardId}`);
+          logger.realtime(`Subscribed to comment count for card ${cardId}`);
         } else if (status === "CHANNEL_ERROR") {
-          console.error(
+          logger.error(
             `Failed to subscribe to comment count for card ${cardId}`
           );
         }

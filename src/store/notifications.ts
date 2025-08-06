@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
+import { logger } from "../lib/logger";
 
 interface Notification {
   id: string;
@@ -63,7 +64,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => {
           filter: `user_id=eq.${currentUser.user.id}`,
         },
         (payload) => {
-          console.log("🔔 Notification change:", payload);
+          logger.realtime("Notification change", {
+            eventType: payload.eventType,
+          });
           // Refresh notifications when there's a change
           get().fetchNotifications();
         }
@@ -103,7 +106,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => {
         // Set up real-time subscription after fetching
         await setupRealtimeSubscription();
       } catch (error: any) {
-        console.error("❌ Error fetching notifications:", error);
+        logger.error("Error fetching notifications", error);
         set({ error: error.message, loading: false });
       }
     },
@@ -128,7 +131,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => {
 
         set({ notifications: updatedNotifications, unreadCount });
       } catch (error: any) {
-        console.error("❌ Error marking notification as read:", error);
+        logger.error("Error marking notification as read", error);
         set({ error: error.message });
       }
     },
@@ -154,7 +157,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => {
 
         set({ notifications: updatedNotifications, unreadCount: 0 });
       } catch (error: any) {
-        console.error("❌ Error marking all notifications as read:", error);
+        logger.error("Error marking all notifications as read", error);
         set({ error: error.message });
       }
     },
@@ -183,7 +186,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => {
           await get().fetchNotifications();
         }
       } catch (error: any) {
-        console.error("❌ Error creating notification:", error);
+        logger.error("Error creating notification", error);
         set({ error: error.message });
       }
     },
@@ -208,7 +211,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => {
 
         set({ notifications: updatedNotifications, unreadCount });
       } catch (error: any) {
-        console.error("❌ Error deleting notification:", error);
+        logger.error("Error deleting notification", error);
         set({ error: error.message });
       }
     },
@@ -232,7 +235,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => {
 
         set({ notifications: updatedNotifications });
       } catch (error: any) {
-        console.error("❌ Error updating notification:", error);
+        logger.error("Error updating notification", error);
         set({ error: error.message });
       }
     },

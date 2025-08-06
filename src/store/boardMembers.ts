@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
+import { boardLogger } from "../lib/logger";
 
 interface BoardMember {
   id: string;
@@ -85,16 +86,15 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
     );
 
     if (boardsWithoutMembers.length === 0) {
-      console.log("ℹ️ Board members already loaded, skipping fetch");
+      boardLogger.info("Board members already loaded, skipping fetch");
       return;
     }
 
     set({ loading: true, error: null });
     try {
-      console.log(
-        "🔍 Fetching all board members for boards:",
-        boardsWithoutMembers
-      );
+      boardLogger.log("Fetching all board members for boards", {
+        boardIds: boardsWithoutMembers,
+      });
 
       const { data: members, error } = await supabase
         .from("board_members")
@@ -103,7 +103,10 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
 
       if (error) throw error;
 
-      console.log("📊 All board members fetch result:", { members, error });
+      boardLogger.log("All board members fetch result", {
+        count: members?.length || 0,
+        error: error?.message,
+      });
 
       // Process members and add profile information
       const processedMembers = await processMembersWithProfiles(members || []);
@@ -126,9 +129,11 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
         loading: false,
       }));
 
-      console.log("✅ All board members set in store:", membersByBoardMap);
+      boardLogger.log("All board members set in store", {
+        boardCount: Object.keys(membersByBoardMap).length,
+      });
     } catch (error: any) {
-      console.error("❌ fetchAllBoardMembers error:", error);
+      boardLogger.error("fetchAllBoardMembers error", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -136,7 +141,7 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
   fetchBoardMembers: async (boardId: string) => {
     set({ loading: true, error: null });
     try {
-      console.log("🔍 Fetching board members for boardId:", boardId);
+      boardLogger.log("Fetching board members for boardId", { boardId });
 
       const { data: members, error } = await supabase
         .from("board_members")
@@ -144,7 +149,10 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
         .eq("board_id", boardId)
         .order("created_at", { ascending: true });
 
-      console.log("📊 Board members fetch result:", { members, error });
+      boardLogger.log("Board members fetch result", {
+        count: members?.length || 0,
+        error: error?.message,
+      });
 
       if (error) throw error;
 
@@ -170,11 +178,11 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
 
         // If we don't have user profiles, try to get basic user info from auth
         if (!profiles || profiles.length === 0) {
-          console.log("⚠️ No user profiles found, will use fallback data");
+          boardLogger.warn("No user profiles found, will use fallback data");
         }
       }
 
-      console.log("📊 User profiles fetched:", userProfiles);
+      boardLogger.log("User profiles fetched", { count: userProfiles.length });
 
       const membersWithUsers = (members || []).map((member) => {
         // Check if this is an invitation placeholder
@@ -223,11 +231,15 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
 
         if (!userEmail) {
           // Try to get user data from auth.users (this might not work due to RLS)
-          console.log("🔍 Trying to get user data for:", member.user_id);
+          boardLogger.log("Trying to get user data for", {
+            userId: member.user_id,
+          });
           // For now, we'll use a placeholder but log that we need real data
           userEmail = `user.${member.user_id.substring(0, 8)}@example.com`;
           username = `User ${member.user_id.substring(0, 8)}`;
-          console.log("⚠️ Could not get real email for user:", member.user_id);
+          boardLogger.warn("Could not get real email for user", {
+            userId: member.user_id,
+          });
         }
 
         if (!username) {
@@ -253,14 +265,12 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
       };
 
       set({ membersByBoard: updatedMembersByBoard, loading: false });
-      console.log(
-        "✅ Board members set in store for board",
+      boardLogger.log("Board members set in store for board", {
         boardId,
-        ":",
-        membersWithUsers
-      );
+        count: membersWithUsers.length,
+      });
     } catch (error: any) {
-      console.error("❌ Error fetching board members:", error);
+      boardLogger.error("Error fetching board members", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -272,7 +282,7 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
   ) => {
     set({ loading: true, error: null });
     try {
-      console.log("➕ Adding board member:", { boardId, userEmail, role });
+      boardLogger.log("Adding board member", { boardId, userEmail, role });
 
       // If no email provided, add the current user (for backward compatibility)
       if (!userEmail.trim()) {
@@ -309,7 +319,9 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
             });
 
           if (profileError && profileError.code !== "23505") {
-            console.warn("Could not create user profile:", profileError);
+            boardLogger.warn("Could not create user profile", {
+              error: profileError.message,
+            });
           }
         }
 
@@ -325,7 +337,10 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
 
         if (error) throw error;
 
-        console.log("✅ Board member added successfully:", member);
+        boardLogger.log("Board member added successfully", {
+          memberId: member.id,
+          boardId,
+        });
         // Refresh the board members in the store
         await get().fetchBoardMembers(boardId);
         return member;
@@ -354,7 +369,9 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
       );
 
       if (lookupError) {
-        console.warn("Could not lookup user by email:", lookupError);
+        boardLogger.warn("Could not lookup user by email", {
+          error: lookupError.message,
+        });
         // Continue with invitation creation
       }
 
@@ -389,7 +406,9 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
             });
 
           if (profileError && profileError.code !== "23505") {
-            console.warn("Could not create user profile:", profileError);
+            boardLogger.warn("Could not create user profile", {
+              error: profileError.message,
+            });
           }
         }
 
@@ -406,7 +425,9 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
 
         if (error) throw error;
 
-        console.log("✅ Existing user added successfully:", cleanEmail);
+        boardLogger.log("Existing user added successfully", {
+          email: cleanEmail,
+        });
         await get().fetchBoardMembers(boardId);
         return member;
       } else {
@@ -428,12 +449,14 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
 
         if (error) throw error;
 
-        console.log("✅ Invitation created for new user:", cleanEmail);
+        boardLogger.log("Invitation created for new user", {
+          email: cleanEmail,
+        });
         await get().fetchBoardMembers(boardId);
         return member;
       }
     } catch (error: any) {
-      console.error("❌ Error adding board member:", error);
+      boardLogger.error("Error adding board member", error);
       set({ error: error.message, loading: false });
       return null;
     }
@@ -453,7 +476,7 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
       // Refresh members to get the updated data
       await get().fetchBoardMembers(boardId);
     } catch (error: any) {
-      console.error("❌ Error removing board member:", error);
+      boardLogger.error("Error removing board member", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -476,7 +499,7 @@ export const useBoardMemberStore = create<BoardMemberState>((set, get) => ({
       // Refresh members to get the updated data
       await get().fetchBoardMembers(boardId);
     } catch (error: any) {
-      console.error("❌ Error updating member role:", error);
+      boardLogger.error("Error updating member role", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -510,9 +533,7 @@ const processMembersWithProfiles = async (members: any[]) => {
     }
   }
 
-  if (process.env.NODE_ENV === "development") {
-    console.log("📊 User profiles fetched:", userProfiles);
-  }
+  boardLogger.log("User profiles fetched", { count: userProfiles.length });
 
   return members.map((member) => {
     // Check if this is an invitation placeholder
@@ -536,15 +557,11 @@ const processMembersWithProfiles = async (members: any[]) => {
     );
 
     // Log member details with reduced verbosity
-    if (process.env.NODE_ENV === "development") {
-      console.log(
-        `🔍 Member: ${
-          member.user_id
-        } Profile found: ${!!userProfile} Profile: ${
-          userProfile ? JSON.stringify(userProfile) : "null"
-        }`
-      );
-    }
+    boardLogger.log("Processing member", {
+      userId: member.user_id,
+      hasProfile: !!userProfile,
+      profileEmail: userProfile?.email,
+    });
 
     // If this is the current user, use their auth info
     if (currentUser?.user?.id === member.user_id) {
@@ -564,11 +581,10 @@ const processMembersWithProfiles = async (members: any[]) => {
 
     // Get user email from profile if available
     if (userProfile && userProfile.email) {
-      if (process.env.NODE_ENV === "development") {
-        console.log(
-          `🔍 User email from profile: ${userProfile.email} for user: ${member.user_id}`
-        );
-      }
+      boardLogger.log("User email from profile", {
+        email: userProfile.email,
+        userId: member.user_id,
+      });
       return {
         ...member,
         email: userProfile.email,

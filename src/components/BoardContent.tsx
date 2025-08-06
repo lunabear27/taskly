@@ -191,9 +191,14 @@ export const BoardContent = React.memo<BoardContentProps>(
                             <Calendar className="h-3 w-3 text-blue-500" />
                             <span className="font-medium text-blue-600">
                               Due{" "}
-                              {new Date(
-                                activeCard.due_date
-                              ).toLocaleDateString()}
+                              {new Date(activeCard.due_date).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                }
+                              )}
                             </span>
                           </div>
                         )}

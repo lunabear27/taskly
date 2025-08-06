@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
+import { logger } from "../lib/logger";
 import type { Assignee } from "../types";
 import { useUserProfileStore } from "./userProfile";
 
@@ -26,7 +27,7 @@ export const useAssigneeStore = create<AssigneeState>((set, get) => ({
   fetchAssignees: async (cardId: string) => {
     set({ loading: true, error: null });
     try {
-      console.log("🔍 Fetching assignees for cardId:", cardId);
+      logger.log("Fetching assignees for cardId", { cardId });
 
       // First, fetch assignees
       const { data: assignees, error } = await supabase
@@ -35,7 +36,10 @@ export const useAssigneeStore = create<AssigneeState>((set, get) => ({
         .eq("card_id", cardId)
         .order("assigned_at", { ascending: true });
 
-      console.log("📊 Assignees fetch result:", { assignees, error });
+      logger.log("Assignees fetch result", {
+        count: assignees?.length || 0,
+        error: error?.message,
+      });
 
       if (error) throw error;
 
@@ -79,9 +83,11 @@ export const useAssigneeStore = create<AssigneeState>((set, get) => ({
       });
 
       set({ assignees: assigneesWithUsers, loading: false });
-      console.log("✅ Assignees set in store:", assigneesWithUsers);
+      logger.log("Assignees set in store", {
+        count: assigneesWithUsers.length,
+      });
     } catch (error: any) {
-      console.error("❌ Error fetching assignees:", error);
+      logger.error("Error fetching assignees", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -89,7 +95,7 @@ export const useAssigneeStore = create<AssigneeState>((set, get) => ({
   assignUser: async (cardId: string, userId: string) => {
     set({ loading: true, error: null });
     try {
-      console.log("➕ Assigning user to card:", { cardId, userId });
+      logger.log("Assigning user to card", { cardId, userId });
 
       const { data: currentUser } = await supabase.auth.getUser();
       if (!currentUser.user) throw new Error("User not authenticated");
@@ -144,18 +150,21 @@ export const useAssigneeStore = create<AssigneeState>((set, get) => ({
         .select("*")
         .single();
 
-      console.log("📝 Assignee creation result:", { assignee, error });
+      logger.log("Assignee creation result", {
+        assigneeId: assignee?.id,
+        error: error?.message,
+      });
 
       if (error) throw error;
 
-      console.log("✅ User assigned successfully:", assignee);
+      logger.log("User assigned successfully", { assigneeId: assignee.id });
 
       // Refresh assignees to ensure we have the latest data
       await get().fetchAssignees(cardId);
 
       return assignee;
     } catch (error: any) {
-      console.error("❌ Error assigning user:", error);
+      logger.error("Error assigning user", error);
       set({ error: error.message, loading: false });
       return null;
     }
@@ -175,7 +184,7 @@ export const useAssigneeStore = create<AssigneeState>((set, get) => ({
       // Refresh assignees to get the updated data
       await get().fetchAssignees(cardId);
     } catch (error: any) {
-      console.error("❌ Error unassigning user:", error);
+      logger.error("Error unassigning user", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -231,7 +240,7 @@ export const useAssigneeStore = create<AssigneeState>((set, get) => ({
 
       return membersWithUsers;
     } catch (error: any) {
-      console.error("❌ Error fetching board members:", error);
+      logger.error("Error fetching board members", error);
       return [];
     }
   },

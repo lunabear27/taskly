@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
 import type { Board, List, Card } from "../types";
+import { boardLogger } from "../lib/logger";
 import { useBoardMemberStore } from "./boardMembers";
 
 interface BoardState {
@@ -18,7 +19,7 @@ interface BoardState {
     title: string,
     description?: string,
     isPublic?: boolean
-  ) => Promise<void>;
+  ) => Promise<Board | null>;
   updateBoard: (id: string, updates: Partial<Board>) => Promise<void>;
   deleteBoard: (id: string) => Promise<void>;
   setCurrentBoard: (board: Board | null) => void;
@@ -82,7 +83,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       // Only log once per session to reduce console spam
       const hasLogged = sessionStorage.getItem("boards-loading-logged");
       if (!hasLogged) {
-        console.log("ℹ️ Boards already loading, skipping fetch");
+        boardLogger.warn("Boards already loading, skipping fetch");
         sessionStorage.setItem("boards-loading-logged", "true");
         // Clear the flag after 2 seconds
         setTimeout(() => {
@@ -102,8 +103,10 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       if (userError) throw userError;
       if (!user) throw new Error("User not authenticated");
 
-      console.log("🔍 Fetching boards for user:", user.id);
-      console.log("👤 User email:", user.email);
+      boardLogger.log("Fetching boards for user", {
+        userId: user.id,
+        email: user.email,
+      });
 
       // First, get boards where user is the creator
       const { data: ownedBoards, error: ownedError } = await supabase
@@ -113,7 +116,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         .order("created_at", { ascending: false });
 
       if (ownedError) {
-        console.error("❌ Error fetching owned boards:", ownedError);
+        boardLogger.error("Error fetching owned boards", ownedError);
         throw ownedError;
       }
 
@@ -130,7 +133,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         .neq("boards.created_by", user.id);
 
       if (memberError) {
-        console.error("❌ Error fetching member boards:", memberError);
+        boardLogger.error("Error fetching member boards", memberError);
         throw memberError;
       }
 
@@ -146,9 +149,11 @@ export const useBoardStore = create<BoardState>((set, get) => ({
           index === self.findIndex((b) => b.id === board.id)
       );
 
-      console.log("📊 Owned boards:", ownedBoardsList.length);
-      console.log("📊 Member boards:", memberBoardsList.length);
-      console.log("📊 Total unique boards:", uniqueBoards.length);
+      boardLogger.log("Board statistics", {
+        owned: ownedBoardsList.length,
+        member: memberBoardsList.length,
+        total: uniqueBoards.length,
+      });
 
       // Fetch starred status for all boards
       const boardIds = uniqueBoards.map((board) => board.id);
@@ -159,7 +164,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         .in("board_id", boardIds);
 
       if (starredError) {
-        console.error("❌ Error fetching starred boards:", starredError);
+        boardLogger.error("Error fetching starred boards", starredError);
         throw starredError;
       }
 
@@ -174,10 +179,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         is_starred: starredBoardIds.has(board.id),
       }));
 
-      console.log(
-        "✅ Setting user's boards with starred status:",
-        boardsWithStarredStatus
-      );
+      boardLogger.log("Setting user's boards with starred status", {
+        count: boardsWithStarredStatus.length,
+      });
 
       set({ boards: boardsWithStarredStatus, loading: false });
 
@@ -194,17 +198,16 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         );
 
         if (boardsWithoutMembers.length > 0) {
-          console.log(
-            "🔍 Preloading board members for boards:",
-            boardsWithoutMembers
-          );
+          boardLogger.log("Preloading board members for boards", {
+            boardIds: boardsWithoutMembers,
+          });
           await boardMemberStore.fetchAllBoardMembers(boardsWithoutMembers);
         } else {
-          console.log("ℹ️ Board members already loaded, skipping preload");
+          boardLogger.info("Board members already loaded, skipping preload");
         }
       }
     } catch (error: any) {
-      console.error("❌ fetchBoards error:", error);
+      boardLogger.error("fetchBoards error", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -215,7 +218,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error("User not authenticated");
 
-      console.log("🔍 Creating board for user:", user.user.id);
+      boardLogger.log("Creating board for user", { userId: user.user.id });
 
       const { data: board, error } = await supabase
         .from("boards")
@@ -228,11 +231,14 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         .single();
 
       if (error) {
-        console.error("❌ Error creating board:", error);
+        boardLogger.error("Error creating board", error);
         throw error;
       }
 
-      console.log("✅ Board created:", board);
+      boardLogger.log("Board created successfully", {
+        boardId: board.id,
+        title: board.title,
+      });
 
       // Check if user is already a member before adding
       const { data: existingMember } = await supabase
@@ -253,20 +259,23 @@ export const useBoardStore = create<BoardState>((set, get) => ({
           });
 
         if (memberError && memberError.code !== "23505") {
-          console.error("❌ Error adding creator as owner:", memberError);
+          boardLogger.error("Error adding creator as owner", memberError);
         } else {
-          console.log("✅ User added as board owner");
+          boardLogger.log("User added as board owner");
         }
       } else {
-        console.log("ℹ️ User already a member of this board");
+        boardLogger.info("User already a member of this board");
       }
 
       // Don't update local state here - let real-time subscription handle it
       // This prevents duplicates when real-time updates come in
       set({ loading: false });
+
+      return board;
     } catch (error: any) {
-      console.error("❌ createBoard error:", error);
+      boardLogger.error("createBoard error", error);
       set({ error: error.message, loading: false });
+      return null;
     }
   },
 
@@ -394,11 +403,11 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   ): Promise<List> => {
     set({ loading: true, error: null });
     try {
-      console.log("Creating list in store:", { boardId, title, position });
+      boardLogger.log("Creating list in store", { boardId, title, position });
 
       // Check if user is authenticated
       const { data: user } = await supabase.auth.getUser();
-      console.log("Current user:", user);
+      boardLogger.log("Current user", { userId: user.user.id });
 
       if (!user.user) {
         throw new Error("User not authenticated");
@@ -412,13 +421,15 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         .single();
 
       if (boardError) {
-        console.error("Error fetching board:", boardError);
+        boardLogger.error("Error fetching board", boardError);
         throw boardError;
       }
 
-      console.log("Board found:", board);
-      console.log("Board created by:", board.created_by);
-      console.log("Current user ID:", user.user.id);
+      boardLogger.log("Board found", {
+        boardId: board.id,
+        createdBy: board.created_by,
+        currentUserId: user.user.id,
+      });
 
       const { data: list, error } = await supabase
         .from("lists")
@@ -431,11 +442,14 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         .single();
 
       if (error) {
-        console.error("Supabase error creating list:", error);
+        boardLogger.error("Supabase error creating list", error);
         throw error;
       }
 
-      console.log("List created in database:", list);
+      boardLogger.log("List created in database", {
+        listId: list.id,
+        title: list.title,
+      });
 
       // Don't update local state here - let real-time subscription handle it
       // This prevents duplicates when real-time updates come in
@@ -443,7 +457,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
 
       return list;
     } catch (error: any) {
-      console.error("Error in createList:", error);
+      boardLogger.error("Error in createList", error);
       set({ error: error.message, loading: false });
       throw error;
     }
@@ -472,14 +486,14 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   },
 
   deleteList: async (id: string) => {
-    console.log("🗑️ deleteList called with id:", id);
+    boardLogger.log("deleteList called with id", { id });
     set({ loading: true, error: null });
     try {
       const { error } = await supabase.from("lists").delete().eq("id", id);
 
       if (error) throw error;
 
-      console.log("🗑️ List deleted from database successfully");
+      boardLogger.log("List deleted from database successfully");
 
       // Update local state optimistically
       const { lists } = get();
@@ -488,7 +502,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         loading: false,
       });
     } catch (error: any) {
-      console.error("🗑️ Error deleting list:", error);
+      boardLogger.error("Error deleting list", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -496,7 +510,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   moveList: async (listId: string, newPosition: number) => {
     set({ loading: true, error: null });
     try {
-      console.log("Moving list:", { listId, newPosition });
+      boardLogger.log("Moving list", { listId, newPosition });
 
       const { lists } = get();
       const listToMove = lists.find((l) => l.id === listId);
@@ -545,7 +559,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       }
 
       if (error) {
-        console.error("Supabase error moving list:", error);
+        boardLogger.error("Supabase error moving list", error);
         // Revert the optimistic update on error
         set({
           lists: lists,
@@ -554,16 +568,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         throw error;
       }
 
-      console.log("✅ List moved successfully:", {
-        listId,
-        newPosition,
-        serverResponse: list,
-        updatedLists: updatedLists.map((l) => ({
-          id: l.id,
-          title: l.title,
-          position: l.position,
-        })),
-      });
+      boardLogger.log("List moved successfully", { listId, newPosition });
 
       // Update with the server response to ensure consistency
       const { lists: currentLists } = get();
@@ -572,7 +577,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         loading: false,
       });
     } catch (error: any) {
-      console.error("Error in moveList:", error);
+      boardLogger.error("Error in moveList", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -715,7 +720,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         const newPosition = listCards.findIndex((c) => c.id === card.id);
         const finalPosition = newPosition >= 0 ? newPosition : card.position;
 
-        console.log("🔄 Updating card position:", {
+        boardLogger.log("Updating card position", {
           cardId: card.id,
           oldPosition: card.position,
           newPosition: finalPosition,
@@ -740,12 +745,15 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   moveCard: async (cardId: string, newListId: string, newPosition: number) => {
     set({ loading: true, error: null });
     try {
-      console.log("🚀 Moving card:", { cardId, newListId, newPosition });
+      boardLogger.log("Moving card", { cardId, newListId, newPosition });
 
       // Get current card info
       const { cards } = get();
       const cardToMove = cards.find((c) => c.id === cardId);
-      console.log("📋 Card to move:", cardToMove);
+      boardLogger.log("Card to move", {
+        cardId: cardToMove?.id,
+        title: cardToMove?.title,
+      });
 
       // Optimistically update the UI first
       if (cardToMove) {
@@ -837,23 +845,20 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         throw error;
       }
 
-      console.log("✅ Card moved successfully:", {
+      boardLogger.log("Card moved successfully", {
         cardId,
         newListId,
         newPosition,
-        serverResponse: card,
       });
 
       // Update with the server response to ensure consistency
       const { cards: currentCards } = get();
       const finalCards = currentCards.map((c) => (c.id === cardId ? card : c));
 
-      console.log("🔄 Final cards after server update:", {
+      boardLogger.log("Final cards after server update", {
         cardId,
-        serverCard: card,
-        finalCards: finalCards
-          .filter((c) => c.list_id === newListId)
-          .map((c) => ({ id: c.id, position: c.position })),
+        finalCardCount: finalCards.filter((c) => c.list_id === newListId)
+          .length,
       });
 
       set({
@@ -861,7 +866,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         loading: false,
       });
     } catch (error: any) {
-      console.error("Error in moveCard:", error);
+      boardLogger.error("Error in moveCard", error);
       set({ error: error.message, loading: false });
     }
   },
@@ -891,7 +896,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
           table: "boards",
         },
         (payload) => {
-          console.log("🔄 Boards real-time update:", payload);
+          boardLogger.realtime("Boards real-time update", {
+            eventType: payload.eventType,
+          });
           const { boards } = get();
 
           switch (payload.eventType) {
@@ -901,15 +908,14 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                 (board) => board.id === payload.new.id
               );
               if (!existingBoard) {
-                console.log(
-                  "🔄 Adding new board via real-time:",
-                  payload.new.id
-                );
+                boardLogger.realtime("Adding new board via real-time", {
+                  boardId: payload.new.id,
+                });
                 set({ boards: [...boards, payload.new as Board] });
               } else {
-                console.log(
-                  "🔄 Board already exists, skipping duplicate:",
-                  payload.new.id
+                boardLogger.realtime(
+                  "Board already exists, skipping duplicate",
+                  { boardId: payload.new.id }
                 );
               }
               break;
@@ -931,7 +937,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         }
       )
       .subscribe((status) => {
-        console.log("🔄 Boards subscription status:", status);
+        boardLogger.realtime("Boards subscription status", { status });
       });
 
     // Subscribe to board_stars table changes
@@ -945,7 +951,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
           table: "board_stars",
         },
         async (payload) => {
-          console.log("🔄 Board stars real-time update:", payload);
+          boardLogger.realtime("Board stars real-time update", {
+            eventType: payload.eventType,
+          });
           const { boards } = get();
 
           // Get current user to check if this star change affects us
@@ -958,10 +966,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
             case "INSERT":
               // New star added - check if it's for current user
               if (payload.new.user_id === user.id) {
-                console.log(
-                  "🔄 Adding star via real-time:",
-                  payload.new.board_id
-                );
+                boardLogger.realtime("Adding star via real-time", {
+                  boardId: payload.new.board_id,
+                });
                 set({
                   boards: boards.map((board) =>
                     board.id === payload.new.board_id
@@ -974,10 +981,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
             case "DELETE":
               // Star removed - check if it's for current user
               if (payload.old.user_id === user.id) {
-                console.log(
-                  "🔄 Removing star via real-time:",
-                  payload.old.board_id
-                );
+                boardLogger.realtime("Removing star via real-time", {
+                  boardId: payload.old.board_id,
+                });
                 set({
                   boards: boards.map((board) =>
                     board.id === payload.old.board_id
@@ -991,7 +997,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         }
       )
       .subscribe((status) => {
-        console.log("🔄 Board stars subscription status:", status);
+        boardLogger.realtime("Board stars subscription status", { status });
       });
 
     set({
@@ -1021,7 +1027,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
           filter: `id=eq.${boardId}`,
         },
         (payload) => {
-          console.log("🔄 Board real-time update:", payload);
+          boardLogger.realtime("Board real-time update", {
+            eventType: payload.eventType,
+          });
           const { currentBoard } = get();
 
           if (currentBoard && currentBoard.id === boardId) {
@@ -1030,7 +1038,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         }
       )
       .subscribe((status) => {
-        console.log("🔄 Board subscription status:", status);
+        boardLogger.realtime("Board subscription status", { status });
       });
 
     set({ realtimeChannels: [...realtimeChannels, boardChannel] });
@@ -1163,7 +1171,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         }
       )
       .subscribe((status) => {
-        console.log("🔄 Lists subscription status:", status);
+        boardLogger.realtime("Lists subscription status", { status });
       });
 
     set({ realtimeChannels: [...realtimeChannels, listsChannel] });
@@ -1190,7 +1198,9 @@ export const useBoardStore = create<BoardState>((set, get) => ({
           table: "cards",
         },
         (payload) => {
-          console.log("🔄 Cards real-time update:", payload);
+          boardLogger.realtime("Cards real-time update", {
+            eventType: payload.eventType,
+          });
           const { cards, lists } = get();
 
           // Check if the card belongs to the current board
@@ -1206,15 +1216,14 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                 (card) => card.id === payload.new.id
               );
               if (!existingInsertedCard) {
-                console.log(
-                  "🔄 Adding new card via real-time:",
-                  payload.new.id
-                );
+                boardLogger.realtime("Adding new card via real-time", {
+                  cardId: payload.new.id,
+                });
                 set({ cards: [...cards, payload.new as Card] });
               } else {
-                console.log(
-                  "🔄 Card already exists, skipping duplicate:",
-                  payload.new.id
+                boardLogger.realtime(
+                  "Card already exists, skipping duplicate",
+                  { cardId: payload.new.id }
                 );
               }
               break;
@@ -1237,7 +1246,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                   existingUpdatedCard.position !== updatedCard.position ||
                   existingUpdatedCard.list_id !== updatedCard.list_id
                 ) {
-                  console.log("🔄 Updating card via real-time:", {
+                  boardLogger.realtime("Updating card via real-time", {
                     cardId: updatedCard.id,
                     oldPosition: existingUpdatedCard.position,
                     newPosition: updatedCard.position,
@@ -1251,8 +1260,8 @@ export const useBoardStore = create<BoardState>((set, get) => ({
                     ),
                   });
                 } else {
-                  console.log(
-                    "🔄 Skipping real-time update - local data is more recent"
+                  boardLogger.realtime(
+                    "Skipping real-time update - local data is more recent"
                   );
                 }
               } else {
@@ -1272,7 +1281,7 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         }
       )
       .subscribe((status) => {
-        console.log("🔄 Cards subscription status:", status);
+        boardLogger.realtime("Cards subscription status", { status });
       });
 
     set({ realtimeChannels: [...realtimeChannels, cardsChannel] });

@@ -15,6 +15,7 @@ export interface Board {
   created_by: string;
   created_at: string;
   updated_at: string;
+  last_opened_at?: string;
   is_starred?: boolean;
 }
 
